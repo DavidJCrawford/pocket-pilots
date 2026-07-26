@@ -36,6 +36,15 @@ function makeSoftTexture() {
     const y = size / 2 + (Math.random() - 0.5) * size * 0.45;
     soft(x, y, size * 0.16 * (0.7 + Math.random()), 0.4);
   }
+  // Force every texel's RGB to white, keeping only the soft alpha. Transparent canvas texels
+  // are (0,0,0,0), and some GPUs surface that undefined colour as rainbow speckles when a
+  // sprite is magnified up close. This texture is only ever a luminance mask — the actual
+  // smoke/fire tint comes from the sprite material's colour — so a uniformly white RGB is
+  // both safe and driver-proof.
+  const img = ctx.getImageData(0, 0, size, size);
+  const data = img.data;
+  for (let i = 0; i < data.length; i += 4) { data[i] = 255; data[i + 1] = 255; data[i + 2] = 255; }
+  ctx.putImageData(img, 0, 0);
   const tex = new THREE.CanvasTexture(canvas);
   tex.colorSpace = THREE.SRGBColorSpace;
   return tex;
