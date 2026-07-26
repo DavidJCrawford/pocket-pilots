@@ -1,0 +1,551 @@
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+/* ---------- Theme tokens (WW1 gunmetal & brass) ---------- */
+:root {
+  --brass: #b98d3e;
+  --brass-lt: #e8c778;
+  --brass-dk: #6b4f21;
+  --plate-top: #3c362b;
+  --plate-mid: #2a251d;
+  --plate-bot: #16120c;
+  --ink: #efe4c8;      /* aged parchment text */
+  --ink-dim: #b3a482;  /* muted labels */
+  --val: #f4d98a;      /* brass readout digits */
+  --danger: #d9483b;
+  --accent: #c9a24a;   /* faction colour; overridden per side */
+  --font-hud: "Oswald", "Trebuchet MS", "Segoe UI", system-ui, sans-serif;
+  --font-title: "Cinzel", "Georgia", "Times New Roman", serif;
+}
+
+html,
+body {
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+  background: #8fd3ff;
+  font-family: var(--font-hud);
+  color: var(--ink);
+}
+
+/* ---------- Shared metal plate (frame + bevel + inner hairline) ---------- */
+.plate {
+  position: relative;
+  background: linear-gradient(180deg, var(--plate-top), var(--plate-mid) 55%, var(--plate-bot));
+  border: 2px solid var(--brass-dk);
+  border-radius: 6px;
+  color: var(--ink);
+  box-shadow:
+    inset 0 1px 0 rgba(240, 210, 150, 0.22),
+    inset 0 -3px 7px rgba(0, 0, 0, 0.55),
+    inset 0 0 0 1px rgba(0, 0, 0, 0.35),
+    0 4px 12px rgba(0, 0, 0, 0.5);
+}
+.plate::before {
+  content: "";
+  position: absolute;
+  inset: 3px;
+  border: 1px solid rgba(185, 141, 62, 0.4);
+  border-radius: 3px;
+  pointer-events: none;
+}
+/* Brass corner rivets layered over the plate gradient. */
+.riveted {
+  background:
+    radial-gradient(circle at 9px 9px, var(--brass-lt) 0 1.4px, var(--brass-dk) 1.6px 2.4px, transparent 2.7px),
+    radial-gradient(circle at calc(100% - 9px) 9px, var(--brass-lt) 0 1.4px, var(--brass-dk) 1.6px 2.4px, transparent 2.7px),
+    radial-gradient(circle at 9px calc(100% - 9px), var(--brass-lt) 0 1.4px, var(--brass-dk) 1.6px 2.4px, transparent 2.7px),
+    radial-gradient(circle at calc(100% - 9px) calc(100% - 9px), var(--brass-lt) 0 1.4px, var(--brass-dk) 1.6px 2.4px, transparent 2.7px),
+    linear-gradient(180deg, var(--plate-top), var(--plate-mid) 55%, var(--plate-bot));
+}
+
+#game {
+  position: fixed;
+  inset: 0;
+  display: block;
+  width: 100vw;
+  height: 100vh;
+  z-index: 0;
+  touch-action: none;
+}
+
+/* Every screen overlays the 3D canvas; only interactive children take pointer events. */
+.screen {
+  position: fixed;
+  inset: 0;
+  z-index: 1;
+  display: none;
+  pointer-events: none;
+  user-select: none;
+}
+.screen .btn,
+.screen button {
+  pointer-events: auto;
+}
+
+/* Mute button — always visible, above every screen. Ornate brass knob. */
+#mute-btn {
+  position: fixed;
+  top: 16px;
+  right: 18px;
+  z-index: 2;
+  width: 46px;
+  height: 46px;
+  font-size: 1.15rem;
+  line-height: 1;
+  border: 2px solid var(--brass-dk);
+  border-radius: 50%;
+  color: var(--ink);
+  background: radial-gradient(circle at 36% 30%, #4a4335, #241f17 78%);
+  cursor: pointer;
+  box-shadow:
+    inset 0 1px 0 rgba(240, 210, 150, 0.28),
+    inset 0 -3px 6px rgba(0, 0, 0, 0.55),
+    0 3px 8px rgba(0, 0, 0, 0.5);
+}
+#mute-btn:active { transform: translateY(2px); box-shadow: inset 0 1px 0 rgba(240, 210, 150, 0.2), 0 1px 3px rgba(0, 0, 0, 0.5); }
+
+/* ---------- Buttons (stamped metal) ---------- */
+.btn {
+  font-family: var(--font-hud);
+  font-weight: 600;
+  font-size: 1rem;
+  text-transform: uppercase;
+  letter-spacing: 1.5px;
+  color: var(--ink);
+  border: 2px solid var(--brass-dk);
+  border-radius: 5px;
+  padding: 11px 26px;
+  cursor: pointer;
+  background: linear-gradient(180deg, var(--plate-top), var(--plate-bot));
+  box-shadow:
+    inset 0 1px 0 rgba(240, 210, 150, 0.22),
+    inset 0 -3px 6px rgba(0, 0, 0, 0.5),
+    0 4px 0 #0d0a06,
+    0 6px 12px rgba(0, 0, 0, 0.4);
+  transition: transform 0.06s ease, box-shadow 0.06s ease, filter 0.1s ease;
+}
+.btn:hover { filter: brightness(1.12); }
+.btn:active { transform: translateY(4px); box-shadow: inset 0 1px 0 rgba(240, 210, 150, 0.18), 0 1px 0 #0d0a06; }
+.btn-primary {
+  color: #2a1e06;
+  border-color: #4a3410;
+  background: linear-gradient(180deg, var(--brass-lt), var(--brass) 58%, var(--brass-dk));
+  text-shadow: 0 1px 0 rgba(255, 240, 200, 0.4);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 240, 200, 0.5),
+    inset 0 -3px 6px rgba(80, 50, 0, 0.4),
+    0 4px 0 #3a2a0c,
+    0 6px 12px rgba(0, 0, 0, 0.4);
+}
+.btn-primary:active { box-shadow: inset 0 1px 0 rgba(255, 240, 200, 0.4), 0 1px 0 #3a2a0c; }
+
+/* ---------- Menu backdrop (title + select) ---------- */
+/* A vignette and a faint canvas weave over the twilight 3D scene, so content sits in an
+   atmospheric frame instead of floating on flat sky. Content is lifted above it. */
+#screen-title::before,
+#screen-select::before {
+  content: "";
+  position: fixed;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+  background:
+    radial-gradient(ellipse 82% 72% at 50% 40%, transparent 32%, rgba(8, 10, 16, 0.46) 72%, rgba(3, 5, 9, 0.82) 100%),
+    repeating-linear-gradient(45deg, rgba(0, 0, 0, 0.05) 0 2px, transparent 2px 5px);
+}
+#screen-title > *,
+#screen-select > * {
+  position: relative;
+  z-index: 1;
+}
+
+/* ---------- Title screen ---------- */
+#screen-title {
+  flex-direction: column;
+  align-items: center;
+  justify-content: flex-start;
+  padding-top: 4vh;
+}
+.title-card {
+  text-align: center;
+  max-width: min(92vw, 700px);
+  padding: 24px clamp(30px, 6vw, 76px) 30px;
+}
+.title-wings {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 14px;
+  margin-bottom: 12px;
+  font-size: 1.1rem;
+  color: var(--brass);
+  text-shadow: 0 0 8px rgba(232, 199, 120, 0.5);
+}
+.title-wings::before,
+.title-wings::after {
+  content: "";
+  width: clamp(40px, 12vw, 96px);
+  height: 2px;
+  background: linear-gradient(90deg, transparent, var(--brass));
+}
+.title-wings::after { background: linear-gradient(90deg, var(--brass), transparent); }
+.title-card h1 {
+  font-family: var(--font-title);
+  font-weight: 700;
+  font-size: clamp(2.6rem, 8vw, 5.4rem);
+  letter-spacing: 3px;
+  text-transform: uppercase;
+  color: var(--val);
+  text-shadow: 0 2px 0 #1a1409, 0 4px 10px rgba(0, 0, 0, 0.6);
+}
+.title-card p {
+  font-family: var(--font-title); /* Cinzel — Roman inscriptional caps, so the I in WWI reads as a numeral */
+  font-weight: 600;
+  font-size: 1.05rem;
+  letter-spacing: 3px;
+  text-transform: uppercase;
+  margin: 10px 0 30px;
+  color: var(--brass-lt);
+  text-shadow: 0 2px 4px rgba(0, 0, 0, 0.6);
+}
+.title-card .btn { font-size: 1.25rem; padding: 15px 46px; }
+
+/* ---------- Select screen ---------- */
+#screen-select {
+  flex-direction: column;
+  justify-content: space-between;
+  padding: 20px 26px 22px;
+}
+.select-head {
+  text-align: center;
+  padding-bottom: 12px;
+  border-bottom: 2px solid var(--brass-dk);
+  box-shadow: 0 2px 0 rgba(232, 199, 120, 0.14);
+}
+.select-head h2 {
+  font-family: var(--font-title);
+  font-weight: 700;
+  font-size: 1.9rem;
+  letter-spacing: 2px;
+  text-transform: uppercase;
+  color: var(--val);
+  text-shadow: 0 2px 0 #1a1409, 0 4px 8px rgba(0, 0, 0, 0.5);
+}
+.select-main {
+  flex: 1;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 20px;
+}
+.roster { display: flex; flex-direction: column; gap: 18px; padding: 16px 16px 18px; }
+.roster-group h3 {
+  font-size: 0.85rem;
+  text-transform: uppercase;
+  letter-spacing: 2px;
+  color: var(--val);
+  margin-bottom: 6px;
+  text-shadow: 0 1px 0 #1a1409, 0 2px 5px rgba(0, 0, 0, 0.6);
+}
+.roster-list { display: flex; flex-direction: column; gap: 6px; }
+.roster-btn {
+  font-family: var(--font-hud);
+  font-weight: 500;
+  font-size: 1rem;
+  letter-spacing: 0.5px;
+  text-align: left;
+  color: var(--ink);
+  background: linear-gradient(180deg, var(--plate-top), var(--plate-bot));
+  border: 2px solid var(--brass-dk);
+  border-left: 3px solid var(--brass-dk);
+  border-radius: 6px;
+  padding: 9px 14px;
+  min-width: 220px;
+  cursor: pointer;
+  box-shadow: inset 0 1px 0 rgba(240, 210, 150, 0.14), 0 2px 5px rgba(0, 0, 0, 0.4);
+  transition: filter 0.1s ease, border-color 0.1s ease;
+}
+.roster-btn:hover { filter: brightness(1.18); }
+.roster-btn.active {
+  color: #2a1e06;
+  background: linear-gradient(180deg, var(--brass-lt), var(--brass) 60%, var(--brass-dk));
+  border-color: #4a3410;
+  border-left-color: #4a3410;
+  text-shadow: 0 1px 0 rgba(255, 240, 200, 0.4);
+}
+
+.detail {
+  width: 300px;
+  padding: 18px 20px;
+}
+.detail-name {
+  font-family: var(--font-title);
+  font-weight: 700;
+  font-size: 1.4rem;
+  letter-spacing: 1px;
+  color: var(--val);
+}
+.detail-nation { font-size: 0.9rem; letter-spacing: 1px; text-transform: uppercase; color: var(--ink-dim); margin-top: 3px; }
+.detail-role { font-size: 0.95rem; color: var(--ink); margin: 12px 0 16px; }
+.dial-row { display: flex; align-items: center; gap: 10px; margin: 7px 0; }
+.dial-label { width: 56px; font-size: 0.72rem; text-transform: uppercase; letter-spacing: 1px; color: var(--ink-dim); }
+.dial-bar {
+  flex: 1;
+  height: 10px;
+  background: linear-gradient(180deg, #14110b, #241f16);
+  border: 1px solid #000;
+  border-radius: 3px;
+  box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.7);
+  overflow: hidden;
+}
+.dial-bar i {
+  display: block;
+  height: 100%;
+  width: 0%;
+  background: linear-gradient(180deg, var(--brass-lt), var(--brass));
+  box-shadow: 0 0 5px rgba(244, 217, 138, 0.4);
+  transition: width 0.2s ease;
+}
+.select-actions { display: flex; justify-content: space-between; }
+
+/* ---------- Battle HUD ---------- */
+/* Faction heraldry: the whole HUD tints to the player's side. */
+#screen-battle[data-side="allied"]  { --accent: #4d84e6; }
+#screen-battle[data-side="central"] { --accent: #d0473a; }
+
+/* Nameplate — faction cockade + accent stripe. */
+#plane-name {
+  position: fixed;
+  top: 16px;
+  left: 18px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 7px 16px 7px 12px;
+  border-left: 3px solid var(--accent);
+}
+#hud-name {
+  font-weight: 600;
+  font-size: 1.05rem;
+  letter-spacing: 0.6px;
+  text-transform: uppercase;
+  color: var(--ink);
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.7);
+}
+.cockade {
+  flex: none;
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  background: radial-gradient(circle, var(--accent) 0 30%, #efe4c8 31% 57%, var(--accent) 58% 100%);
+  box-shadow: 0 0 0 1px var(--brass-dk), inset 0 0 3px rgba(0, 0, 0, 0.5);
+}
+
+/* Kill tally — top centre. Enemy aces as roundel pips that darken when downed. */
+#objective {
+  position: fixed;
+  top: 16px;
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 8px 18px;
+}
+.obj-label {
+  font-weight: 600;
+  font-size: 0.66rem;
+  letter-spacing: 2.5px;
+  text-transform: uppercase;
+  color: var(--ink-dim);
+}
+.pips { display: flex; gap: 7px; }
+.pip {
+  width: 15px;
+  height: 15px;
+  border-radius: 50%;
+  background: radial-gradient(circle at 38% 32%, #ff6f5f, var(--danger) 72%);
+  box-shadow: 0 0 0 1px var(--brass-dk), inset 0 1px 1px rgba(255, 255, 255, 0.35), 0 0 6px rgba(217, 72, 59, 0.55);
+  transition: background 0.3s ease, box-shadow 0.3s ease, opacity 0.3s ease;
+}
+.pip.down {
+  background: radial-gradient(circle at 38% 32%, #4a4238, #201c15 70%);
+  box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.7), 0 0 0 1px rgba(0, 0, 0, 0.5);
+  opacity: 0.55;
+}
+
+/* Instrument cluster — bottom left. */
+#hud {
+  position: fixed;
+  bottom: 20px;
+  left: 20px;
+  display: flex;
+  align-items: stretch;
+  padding: 9px 4px;
+}
+.gauge {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  padding: 2px 15px;
+  border-right: 1px solid rgba(0, 0, 0, 0.5);
+  box-shadow: 1px 0 0 rgba(232, 199, 120, 0.08);
+}
+.gauge:last-child { border-right: none; box-shadow: none; }
+.g-label {
+  font-weight: 600;
+  font-size: 0.6rem;
+  letter-spacing: 2px;
+  text-transform: uppercase;
+  color: var(--ink-dim);
+}
+.g-val {
+  display: flex;
+  align-items: baseline;
+  gap: 2px;
+  font-weight: 600;
+  font-size: 1.3rem;
+  line-height: 1;
+  color: var(--val);
+  font-variant-numeric: tabular-nums;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.7);
+}
+.g-val em {
+  font-size: 0.6rem;
+  font-style: normal;
+  font-weight: 500;
+  letter-spacing: 0.5px;
+  color: var(--ink-dim);
+}
+.gauge-guns { min-width: 78px; }
+.heat {
+  width: 72px;
+  height: 10px;
+  margin-top: 3px;
+  background: linear-gradient(180deg, #14110b, #241f16);
+  border: 1px solid #000;
+  border-radius: 3px;
+  box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.8), inset 0 0 0 1px rgba(232, 199, 120, 0.12);
+  overflow: hidden;
+}
+#heat-fill {
+  display: block;
+  height: 100%;
+  width: 0%;
+  background: linear-gradient(180deg, var(--brass-lt), var(--brass));
+  box-shadow: 0 0 6px rgba(244, 217, 138, 0.5);
+  transition: width 0.06s linear;
+}
+#heat-fill.hot { background: linear-gradient(180deg, #ff7a5a, var(--danger)); box-shadow: 0 0 8px rgba(217, 72, 59, 0.7); }
+
+/* Control hint — aged ivory keycaps. */
+#hint {
+  position: fixed;
+  bottom: 16px;
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 7px 16px;
+  font-weight: 500;
+  font-size: 0.78rem;
+}
+#hint span {
+  margin: 0 9px 0 4px;
+  letter-spacing: 1px;
+  text-transform: uppercase;
+  color: var(--ink-dim);
+}
+#hint b {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 21px;
+  height: 21px;
+  padding: 0 5px;
+  font-weight: 700;
+  font-size: 0.72rem;
+  color: #2b2117;
+  background: linear-gradient(180deg, #e9debe, #b9a97e);
+  border-radius: 4px;
+  box-shadow: 0 2px 0 #6e6045, inset 0 1px 0 rgba(255, 255, 255, 0.6);
+}
+
+/* Gunsight reticle. */
+#reticle {
+  position: fixed;
+  top: 50%; left: 50%;
+  width: 30px; height: 30px;
+  margin: -15px 0 0 -15px;
+  border: 1.5px solid rgba(244, 217, 138, 0.75);
+  border-radius: 50%;
+  box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.5), inset 0 0 4px rgba(0, 0, 0, 0.4);
+}
+#reticle::before {
+  /* cross ticks */
+  content: "";
+  position: absolute;
+  inset: -7px;
+  background:
+    linear-gradient(rgba(244, 217, 138, 0.75), rgba(244, 217, 138, 0.75)) 50% 0 / 1.5px 7px no-repeat,
+    linear-gradient(rgba(244, 217, 138, 0.75), rgba(244, 217, 138, 0.75)) 50% 100% / 1.5px 7px no-repeat,
+    linear-gradient(rgba(244, 217, 138, 0.75), rgba(244, 217, 138, 0.75)) 0 50% / 7px 1.5px no-repeat,
+    linear-gradient(rgba(244, 217, 138, 0.75), rgba(244, 217, 138, 0.75)) 100% 50% / 7px 1.5px no-repeat;
+}
+#reticle::after {
+  content: "";
+  position: absolute;
+  top: 50%; left: 50%;
+  width: 3px; height: 3px;
+  margin: -1.5px 0 0 -1.5px;
+  background: rgba(244, 217, 138, 0.95);
+  border-radius: 50%;
+}
+
+#hitmarker {
+  position: fixed;
+  top: 50%; left: 50%;
+  transform: translate(-50%, -50%);
+  color: #ff4d4d;
+  font-size: 1.6rem;
+  font-weight: bold;
+  opacity: 0;
+  transition: opacity 0.05s linear;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.6);
+}
+
+/* Result — ornate plaque over a vignette. */
+#result {
+  position: fixed;
+  inset: 0;
+  display: none;
+  align-items: center;
+  justify-content: center;
+  background: radial-gradient(ellipse at center, rgba(20, 15, 8, 0.5), rgba(6, 4, 2, 0.84));
+  pointer-events: auto;
+}
+.result-plate {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 24px;
+  padding: 36px 56px;
+}
+.result-text {
+  font-family: var(--font-title);
+  font-weight: 700;
+  font-size: 2.8rem;
+  letter-spacing: 5px;
+  text-transform: uppercase;
+  color: var(--val);
+  text-shadow: 0 2px 4px rgba(0, 0, 0, 0.8);
+}
+.result-text.lose { color: #e86a5c; }
+.result-actions { display: flex; gap: 14px; flex-wrap: wrap; justify-content: center; }
