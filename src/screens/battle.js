@@ -330,6 +330,14 @@ function makeCloudTexture() {
     const y = size / 2 + (Math.random() - 0.5) * size * 0.45;
     blob(x, y, size * 0.18 * (0.6 + Math.random()), 0.35);
   }
+  // Force every texel's RGB to solid white, keeping only the soft alpha we drew. Transparent
+  // canvas texels are (0,0,0,0), and some GPUs surface that undefined colour as rainbow
+  // speckles when the sprite is magnified up close — a uniformly white RGB channel makes the
+  // cloud read as pure white/grey everywhere, whatever the driver does with near-zero alpha.
+  const img = ctx.getImageData(0, 0, size, size);
+  const data = img.data;
+  for (let i = 0; i < data.length; i += 4) { data[i] = 255; data[i + 1] = 255; data[i + 2] = 255; }
+  ctx.putImageData(img, 0, 0);
   const tex = new THREE.CanvasTexture(canvas);
   tex.colorSpace = THREE.SRGBColorSpace;
   return tex;
