@@ -183,9 +183,11 @@ function makeGroundTexture() {
   tex.colorSpace = THREE.LinearSRGBColorSpace;
   tex.wrapS = tex.wrapT = THREE.ClampToEdgeWrapping;
   tex.anisotropy = 8; // stays crisp at the grazing angles the terrain is viewed from
-  // The plane's UVs map v→+z directly; the default flipY would sample our rows mirrored in z,
-  // putting the painted water off the carved channel. Keep the rows aligned to world z.
-  tex.flipY = false;
+  // Keep the DEFAULT flipY (true). PlaneGeometry stores vertices as (x, -y, 0), so its uv.v
+  // runs opposite to world z; the default flip is exactly what re-aligns our rows (generated
+  // as world z = (py/(N-1) - 0.5)*SIZE) back onto the carved channel. flipY:false mirrors it
+  // in z and floats the painted water off the real river, which put trees in the water.
+  tex.flipY = true;
   return tex;
 }
 
