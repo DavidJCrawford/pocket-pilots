@@ -97,7 +97,6 @@ export function obstacleTop(x, z) {
   return canopy === undefined ? ground : Math.max(ground, canopy);
 }
 
-const _c = new THREE.Color();
 const _field = new THREE.Color();
 function fieldColor(x, z, out) {
   const patch = fbm(x * 0.0009 + 5, z * 0.0009 + 5); // broad field patches
@@ -112,34 +111,69 @@ function fieldColor(x, z, out) {
   return out;
 }
 
+/** Final ground colour at world (x, z): water → sandy bank → field, blended by river distance. */
+function groundColor(x, z, out) {
+  const bank = smoothstep(RIVER_HALF - 12, RIVER_HALF + BANK_COLOR, riverDist(x, z));
+  if (bank <= 0) return out.copy(WATER_COL);
+  if (bank >= 1) return fieldColor(x, z, out);
+  fieldColor(x, z, _field);
+  if (bank < 0.45) out.copy(WATER_COL).lerp(SAND_COL, bank / 0.45);
+  else out.copy(SAND_COL).lerp(_field, (bank - 0.45) / 0.55);
+  return out;
+}
+
+// --- Ground colour TEXTURE ---------------------------------------------------
+// The ground colours are baked into a texture (evaluated per-texel) rather than stored as
+// per-vertex colours. Per-vertex colours are interpolated linearly across the terrain's
+// triangles, so every colour transition (shorelines, field edges) revealed the ~30 m grid
+// as a jagged diagonal zigzag. A texture is sampled per fragment, so the colouring is smooth
+// no matter how coarse the mesh is — the definitive fix for the faceting.
+const GROUND_TEX_RES = 1024; // ~7.8 m per texel across the 8 km map
+function makeGroundTexture() {
+  const N = GROUND_TEX_RES;
+  const canvas = document.createElement('canvas');
+  canvas.width = canvas.height = N;
+  const ctx = canvas.getContext('2d');
+  const img = ctx.createImageData(N, N);
+  const data = img.data;
+  const col = new THREE.Color();
+  let o = 0;
+  for (let py = 0; py < N; py++) {
+    const z = (py / (N - 1) - 0.5) * SIZE;
+    for (let px = 0; px < N; px++) {
+      const x = (px / (N - 1) - 0.5) * SIZE;
+      groundColor(x, z, col);
+      data[o] = Math.max(0, Math.min(255, col.r * 255));
+      data[o + 1] = Math.max(0, Math.min(255, col.g * 255));
+      data[o + 2] = Math.max(0, Math.min(255, col.b * 255));
+      data[o + 3] = 255;
+      o += 4;
+    }
+  }
+  ctx.putImageData(img, 0, 0);
+  const tex = new THREE.CanvasTexture(canvas);
+  // Bytes hold the (linear) diffuse values verbatim, matching the old vertex-colour look.
+  tex.colorSpace = THREE.LinearSRGBColorSpace;
+  tex.wrapS = tex.wrapT = THREE.ClampToEdgeWrapping;
+  tex.anisotropy = 8; // stays crisp at the grazing angles the terrain is viewed from
+  // The plane's UVs map v→+z directly; the default flipY would sample our rows mirrored in z,
+  // putting the painted water off the carved channel. Keep the rows aligned to world z.
+  tex.flipY = false;
+  return tex;
+}
+
 // --- Terrain mesh ------------------------------------------------------------
 function buildTerrainMesh() {
   const geo = new THREE.PlaneGeometry(SIZE, SIZE, SEG, SEG);
-  geo.rotateX(-Math.PI / 2); // lay flat, +Y up
+  geo.rotateX(-Math.PI / 2); // lay flat, +Y up (uv still maps the map extent 0..1)
   const pos = geo.attributes.position;
-  const colors = new Float32Array(pos.count * 3);
   for (let i = 0; i < pos.count; i++) {
-    const x = pos.getX(i); const z = pos.getZ(i);
-    pos.setY(i, heightAt(x, z));
-    // Smoothly blend water → sandy bank → field over a band far wider than the grid
-    // spacing, so the shoreline reads as smooth banks rather than a jagged edge.
-    const bank = smoothstep(RIVER_HALF - 12, RIVER_HALF + BANK_COLOR, riverDist(x, z));
-    if (bank <= 0) {
-      _c.copy(WATER_COL);
-    } else if (bank >= 1) {
-      fieldColor(x, z, _c);
-    } else {
-      fieldColor(x, z, _field);
-      if (bank < 0.45) _c.copy(WATER_COL).lerp(SAND_COL, bank / 0.45);
-      else _c.copy(SAND_COL).lerp(_field, (bank - 0.45) / 0.55);
-    }
-    colors[i * 3] = _c.r; colors[i * 3 + 1] = _c.g; colors[i * 3 + 2] = _c.b;
+    pos.setY(i, heightAt(pos.getX(i), pos.getZ(i)));
   }
   pos.needsUpdate = true;
-  geo.setAttribute('color', new THREE.BufferAttribute(colors, 3));
   geo.computeVertexNormals();
-  // Smooth (non-toon) diffuse so the rolling hills read as scenery, lit by the sun + sky.
-  const mat = new THREE.MeshLambertMaterial({ vertexColors: true });
+  // Smooth (non-toon) diffuse, coloured by the per-texel ground map, lit by the sun + sky.
+  const mat = new THREE.MeshLambertMaterial({ map: makeGroundTexture() });
   const mesh = new THREE.Mesh(geo, mat);
   mesh.name = 'terrain';
   mesh.receiveShadow = true; // planes cast their midday shadow onto the ground
