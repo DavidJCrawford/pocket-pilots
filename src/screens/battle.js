@@ -353,13 +353,17 @@ function buildWorld(scene) {
     map: cloudTex, transparent: true, depthWrite: false, opacity, color: 0xffffff,
   }));
   const clouds = new THREE.Group();
+  // A few showpiece giants per level: two clouds 5× the average size, one a towering 10×.
+  // The rest stay normal. (Positions are still random, so their placement varies each round.)
+  const sizeFactors = [10, 5, 5];
   for (let i = 0; i < 18; i++) {
+    const factor = sizeFactors[i] ?? 1;
     const cx = (Math.random() - 0.5) * 1900;
-    const cy = 45 + Math.random() * 170;
+    const cy = 45 + Math.random() * 170 + (factor - 1) * 30; // lift the big ones clear of the ground
     const cz = (Math.random() - 0.5) * 1900;
-    const puffs = 3 + Math.floor(Math.random() * 3);
+    const puffs = 3 + Math.floor(Math.random() * 3) + Math.round((factor - 1) * 2); // more puffs fill a bigger cloud
     for (let p = 0; p < puffs; p++) {
-      const s = 22 + Math.random() * 28;
+      const s = (22 + Math.random() * 28) * factor;
       const sprite = new THREE.Sprite(cloudMats[(Math.random() * cloudMats.length) | 0]);
       sprite.position.set(
         cx + (Math.random() - 0.5) * s * 1.5,
