@@ -98,16 +98,43 @@ export function obstacleTop(x, z) {
 }
 
 const _field = new THREE.Color();
+
+// A palette of grassland tones (deep shade → lush green → dry hay), authored as linear diffuse
+// like the rest of the terrain. The ground colour is a CONTINUOUS walk through this ramp driven
+// by layered noise — no thresholds — so every colour transition is a smooth blend, giving the
+// "many grasses melting into each other" look rather than hard patches with jagged edges.
+const GRASS = [
+  [0.20, 0.37, 0.17], // deep shaded green
+  [0.29, 0.49, 0.23], // woodland green
+  [0.40, 0.57, 0.28], // rich grass
+  [0.52, 0.64, 0.31], // light meadow
+  [0.66, 0.69, 0.40], // dry grass
+  [0.74, 0.71, 0.46], // pale hay
+];
+
+function sampleGrass(t, out) {
+  const n = GRASS.length - 1;
+  const f = Math.max(0, Math.min(1, t)) * n;
+  const i = Math.min(n - 1, Math.floor(f));
+  const k = f - i;
+  const a = GRASS[i];
+  const b = GRASS[i + 1];
+  return out.setRGB(a[0] + (b[0] - a[0]) * k, a[1] + (b[1] - a[1]) * k, a[2] + (b[2] - a[2]) * k);
+}
+
 function fieldColor(x, z, out) {
-  const patch = fbm(x * 0.0009 + 5, z * 0.0009 + 5); // broad field patches
-  const fine = noise2(x * 0.007, z * 0.007);
-  if (patch > 0.72) {
-    out.setRGB(0.70, 0.64, 0.40); // ripe/ploughed farmland
-  } else if (patch < 0.3) {
-    out.setRGB(0.30, 0.47, 0.24); // darker woodland green
-  } else {
-    out.setRGB(0.36 + patch * 0.28 + fine * 0.05, 0.55 + patch * 0.14 + fine * 0.05, 0.26 + patch * 0.12);
-  }
+  // Blend several noise scales into one smooth [0,1] value, then read the grass ramp. Because
+  // both the noise sum and the ramp are continuous, adjacent points differ only slightly —
+  // no hard edges at any zoom.
+  const broad = fbm(x * 0.0013 + 5, z * 0.0013 + 5); // large colour zones
+  const med = fbm(x * 0.005 + 20, z * 0.005 + 9); // medium mottling (patchy meadows)
+  const fine = noise2(x * 0.013 + 3, z * 0.013 + 50); // fine grain
+  let t = broad * 0.48 + med * 0.4 + fine * 0.12;
+  t = smoothstep(0.28, 0.72, t); // more contrast so patches are distinct — but still a smooth ramp
+  sampleGrass(t, out);
+  // Broad warm/cool hue drift so whole meadows read as clearly different grasses.
+  const warm = (fbm(x * 0.0022 + 70, z * 0.0022 + 40) - 0.5) * 0.10;
+  out.setRGB(out.r + warm, out.g + warm * 0.3, out.b - warm * 0.55);
   return out;
 }
 
