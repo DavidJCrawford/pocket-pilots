@@ -48,8 +48,31 @@ const SAND_COL = new THREE.Color(0.64, 0.6, 0.44);
 function riverX(z) {
   return Math.sin(z * 0.00075) * 1000 + Math.sin(z * 0.0022 + 1.5) * 260;
 }
+
+/**
+ * TRUE distance from (x, z) to the river centreline curve (riverX(t), t), found by sampling
+ * the curve near z and taking the nearest point (coarse scan, then a fine refine). Measuring
+ * the real perpendicular distance — not the horizontal gap at a fixed z — keeps the water a
+ * constant width and the banks running parallel to the flow even where the river swings hard
+ * across the map. The old `|x - riverX(z)|` compressed the bank band into a single grid cell
+ * on steep bends, which is what made those sections look jagged.
+ */
 function riverDist(x, z) {
-  return Math.abs(x - riverX(z));
+  let best = Infinity;
+  let bestT = z;
+  for (let t = z - 520; t <= z + 520; t += 20) {
+    const dx = x - riverX(t);
+    const dz = z - t;
+    const d2 = dx * dx + dz * dz;
+    if (d2 < best) { best = d2; bestT = t; }
+  }
+  for (let t = bestT - 20; t <= bestT + 20; t += 2) {
+    const dx = x - riverX(t);
+    const dz = z - t;
+    const d2 = dx * dx + dz * dz;
+    if (d2 < best) best = d2;
+  }
+  return Math.sqrt(best);
 }
 
 /** Terrain height at world (x, z): rolling hills with a flat river and smoothly sloped banks. */
